@@ -7,7 +7,7 @@ import rPPG_Methods as rppg
 import process_functions as pf
 import os, csv
 
-def csv_generator(bvp_patch, signal_filtered, time_array, spectrum, freqs, method_label, patch_id):
+def csv_generator(bvp_patch, signal_filtered, time_array, spectrum, freqs, method_label, patch_id, video_name):
     """
     Gera arquivos CSV para sinal bruto, sinal filtrado e análise espectral.
     
@@ -19,12 +19,14 @@ def csv_generator(bvp_patch, signal_filtered, time_array, spectrum, freqs, metho
     - freqs: Frequências correspondentes ao espectro.
     - method_label: Nome do método rPPG (definirá a pasta onde os arquivos serão salvos).
     - patch_id: Identificador do patch (número do landmark).
+    - video_name: Nome do vídeo para criar a pasta específica.
     """
     # Diretório base onde os arquivos serão salvos
     base_dir = "csv_outputs"
     
-    # Cria a estrutura de diretórios: csv_outputs/{method_label}/patch_{patch_id}
-    patch_dir = os.path.join(base_dir, method_label, f"patch_{patch_id}")
+    # Cria a estrutura de diretórios: csv_outputs/{video_name}/{method_label}/patch_{patch_id}
+    video_dir = os.path.join(base_dir, video_name)
+    patch_dir = os.path.join(video_dir, method_label, f"patch_{patch_id}")
     os.makedirs(patch_dir, exist_ok=True)
     
     # 1. Arquivo CSV do sinal bruto
@@ -142,7 +144,7 @@ def processa_um_frame_ssr(frame, patch_id=151, target_size=(32, 32)):
     
     return patch_crop.astype(np.float32)  # Retorna um array [32, 32, 3]
 
-def process_video(video_path):
+def process_video(video_path, video_file):
     """
     Função que processa um vídeo e salva os resultados em arquivos CSV.
     """
@@ -216,7 +218,7 @@ def process_video(video_path):
             spectrum, freqs = pf.calculate_fft(signal_filtered, fs)
 
             # Gera 3 arquivos csv, uma para o sinal bruto, outro para o filtrado e outro para a análise espectral
-            csv_generator(bvp_patch, signal_filtered, time_array, spectrum, freqs, labels[j], patches[i])
+            csv_generator(bvp_patch, signal_filtered, time_array, spectrum, freqs, labels[j], patches[i], video_file)
 
 if __name__ == '__main__':
     # Caminho da pasta com os vídeos
@@ -228,4 +230,4 @@ if __name__ == '__main__':
     for video_file in video_files:
         video_path = os.path.join(video_folder, video_file)
         print(f"Processando o vídeo: {video_file}")
-        process_video(video_path)
+        process_video(video_path, video_file)
