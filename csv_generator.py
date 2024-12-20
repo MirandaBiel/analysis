@@ -7,6 +7,56 @@ import rPPG_Methods as rppg
 import process_functions as pf
 import os, csv
 
+def csv_generator(bvp_patch, signal_filtered, time_array, spectrum, freqs, method_label, patch_id):
+    """
+    Gera arquivos CSV para sinal bruto, sinal filtrado e análise espectral.
+    
+    Parâmetros:
+    - bvp_patch: Sinal bruto do método rPPG.
+    - signal_filtered: Sinal filtrado com filtro Butterworth.
+    - time_array: Array de tempo correspondente aos sinais.
+    - spectrum: Espectro de frequência do sinal.
+    - freqs: Frequências correspondentes ao espectro.
+    - method_label: Nome do método rPPG (definirá a pasta onde os arquivos serão salvos).
+    - patch_id: Identificador do patch (número do landmark).
+    """
+    # Diretório base onde os arquivos serão salvos
+    base_dir = "csv_outputs"
+    
+    # Cria a estrutura de diretórios: csv_outputs/{method_label}/patch_{patch_id}
+    patch_dir = os.path.join(base_dir, method_label, f"patch_{patch_id}")
+    os.makedirs(patch_dir, exist_ok=True)
+    
+    # 1. Arquivo CSV do sinal bruto
+    raw_file_path = os.path.join(patch_dir, f"sinal_bruto_patch_{patch_id}.csv")
+    with open(raw_file_path, mode='w', newline='') as file:
+        writer = csv.writer(file)
+        writer.writerow(["Time (s)", "Raw Signal"])  # Cabeçalhos
+        for t, value in zip(time_array, bvp_patch):
+            writer.writerow([t, value])
+    
+    print(f"Arquivo CSV gerado: {raw_file_path}")
+    
+    # 2. Arquivo CSV do sinal filtrado
+    filtered_file_path = os.path.join(patch_dir, f"sinal_filtrado_patch_{patch_id}.csv")
+    with open(filtered_file_path, mode='w', newline='') as file:
+        writer = csv.writer(file)
+        writer.writerow(["Time (s)", "Filtered Signal"])  # Cabeçalhos
+        for t, value in zip(time_array, signal_filtered):
+            writer.writerow([t, value])
+    
+    print(f"Arquivo CSV gerado: {filtered_file_path}")
+    
+    # 3. Arquivo CSV da análise espectral
+    spectrum_file_path = os.path.join(patch_dir, f"espectro_frequencia_patch_{patch_id}.csv")
+    with open(spectrum_file_path, mode='w', newline='') as file:
+        writer = csv.writer(file)
+        writer.writerow(["Frequency (Hz)", "Amplitude"])  # Cabeçalhos
+        for f, value in zip(freqs, spectrum):
+            writer.writerow([f, value])
+    
+    print(f"Arquivo CSV gerado: {spectrum_file_path}")
+
 # Parâmetros
 patches = [151, 101, 330, 10, 104, 107, 108, 109, 135, 18, 188, 199, 266, 280, 299, 333, 336, 337, 338, 347, 36, 364, 4, 50, 6, 69, 9]  # Regiões de interesse (números de landmarks)
 face_mesh = mp.solutions.face_mesh.FaceMesh(
@@ -92,124 +142,90 @@ def processa_um_frame_ssr(frame, patch_id=151, target_size=(32, 32)):
     
     return patch_crop.astype(np.float32)  # Retorna um array [32, 32, 3]
 
-def csv_generator(bvp_patch, signal_filtered, time_array, spectrum, freqs, method_label, patch_id, video_name):
+def process_video(video_path):
     """
-    Gera arquivos CSV para sinal bruto, sinal filtrado e análise espectral.
-    Organiza os arquivos em pastas de vídeo e métodos.
-    
-    Parâmetros:
-    - bvp_patch: Sinal bruto do método rPPG.
-    - signal_filtered: Sinal filtrado com filtro Butterworth.
-    - time_array: Array de tempo correspondente aos sinais.
-    - spectrum: Espectro de frequência do sinal.
-    - freqs: Frequências correspondentes ao espectro.
-    - method_label: Nome do método rPPG (definirá a pasta onde os arquivos serão salvos).
-    - patch_id: Identificador do patch (número do landmark).
-    - video_name: Nome do vídeo sendo processado.
+    Função que processa um vídeo e salva os resultados em arquivos CSV.
     """
-    # Diretório base onde os arquivos serão salvos
-    base_dir = "csv_outputs"
+    # Lista para armazenar os valores RGB
+    rppg_channels = []
+    rppg_channels_ssr = []
+
+    # Abre o vídeo
+    captura = cv2.VideoCapture(video_path)
+
+    if not captura.isOpened():
+        print(f"Erro ao abrir o vídeo: {video_path}")
+        return
     
-    # Cria a estrutura de diretórios: csv_outputs/{video_name}/{method_label}/patch_{patch_id}
-    patch_dir = os.path.join(base_dir, video_name, method_label, f"patch_{patch_id}")
-    os.makedirs(patch_dir, exist_ok=True)
-    
-    # 1. Arquivo CSV do sinal bruto
-    raw_file_path = os.path.join(patch_dir, f"sinal_bruto_patch_{patch_id}.csv")
-    with open(raw_file_path, mode='w', newline='') as file:
-        writer = csv.writer(file)
-        writer.writerow(["Time (s)", "Raw Signal"])  # Cabeçalhos
-        for t, value in zip(time_array, bvp_patch):
-            writer.writerow([t, value])
-    
-    # 2. Arquivo CSV do sinal filtrado
-    filtered_file_path = os.path.join(patch_dir, f"sinal_filtrado_patch_{patch_id}.csv")
-    with open(filtered_file_path, mode='w', newline='') as file:
-        writer = csv.writer(file)
-        writer.writerow(["Time (s)", "Filtered Signal"])  # Cabeçalhos
-        for t, value in zip(time_array, signal_filtered):
-            writer.writerow([t, value])
-    
-    # 3. Arquivo CSV da análise espectral
-    spectrum_file_path = os.path.join(patch_dir, f"espectro_frequencia_patch_{patch_id}.csv")
-    with open(spectrum_file_path, mode='w', newline='') as file:
-        writer = csv.writer(file)
-        writer.writerow(["Frequency (Hz)", "Amplitude"])  # Cabeçalhos
-        for f, value in zip(freqs, spectrum):
-            writer.writerow([f, value])
+    while True:
+        ret, frame = captura.read()
+        if not ret:
+            print("Fim do vídeo ou erro ao ler frame.")
+            break
+        
+        # Processa o frame e armazena o resultado
+        rgb_values = processa_um_frame(frame)  # Agora retorna [num_patches, 3]
+        rppg_channels.append(rgb_values)
 
-def process_videos_in_folder(video_folder, patches, fs):
-    """
-    Processa todos os vídeos em uma pasta e aplica métodos rPPG.
-    
-    Parâmetros:
-    - video_folder: Caminho da pasta contendo os vídeos.
-    - patches: Lista de patches (landmarks) de interesse.
-    - fs: Frequência de amostragem.
-    """
-    face_mesh = mp.solutions.face_mesh.FaceMesh(
-        min_detection_confidence=0.5, 
-        min_tracking_confidence=0.5, 
-        max_num_faces=1
-    )
+        # Processa o frame e extrai o patch 151 com tamanho fixo
+        patch_crop = processa_um_frame_ssr(frame, target_size=(32, 32))
+        rppg_channels_ssr.append(patch_crop)
+        
+        # Exibe o frame
+        cv2.imshow('Frame', frame)
+        if cv2.waitKey(25) & 0xFF == ord('q'):
+            break
 
-    # Lista todos os arquivos de vídeo na pasta
-    for video_file in os.listdir(video_folder):
-        if video_file.endswith(('.mp4', '.avi', '.mov', '.h264')):  # Extensões suportadas
-            video_path = os.path.join(video_folder, video_file)
-            print(f"Processando vídeo: {video_file}")
-            
-            # Nome do vídeo sem extensão
-            video_name = os.path.splitext(video_file)[0]
+    # Libera o objeto de captura e fecha a janela
+    captura.release()
+    cv2.destroyAllWindows()
 
-            # Processamento do vídeo
-            rppg_channels = []
-            rppg_channels_ssr = []
-            captura = cv2.VideoCapture(video_path)
+    # Converte a lista para um ndarray com shape [num_patches, 3, num_frames]
+    rppg_channels = np.array(rppg_channels, dtype=np.float32)
+    rppg_channels = rppg_channels.transpose(1, 2, 0)
 
-            if not captura.isOpened():
-                print(f"Erro ao abrir o vídeo: {video_file}")
-                continue
+    # Converte a lista para um ndarray com o formato necessário [num_frames, rows, columns, rgb_channels]
+    rppg_channels_ssr = np.array(rppg_channels_ssr, dtype=np.float32)
 
-            while True:
-                ret, frame = captura.read()
-                if not ret:
-                    print(f"Fim do vídeo: {video_file}")
-                    break
-                
-                # Processa o frame
-                rgb_values = processa_um_frame(frame, patches, face_mesh)  # [num_patches, 3]
-                rppg_channels.append(rgb_values)
-                patch_crop = processa_um_frame_ssr(frame, face_mesh, target_size=(32, 32))
-                rppg_channels_ssr.append(patch_crop)
-            
-            captura.release()
-            rppg_channels = np.array(rppg_channels).transpose(1, 2, 0)  # [num_patches, 3, num_frames]
-            rppg_channels_ssr = np.array(rppg_channels_ssr, dtype=np.float32)
+    # Aplicar métodos rPPG
+    bvp_chrom = rppg.CHROM(rppg_channels)
+    bvp_green = rppg.GREEN(rppg_channels)
+    bvp_lgi = rppg.LGI(rppg_channels)
+    bvp_pos = rppg.POS(rppg_channels, fps=fs)
+    bvp_gbgr = rppg.GBGR(rppg_channels)
+    bvp_ica = rppg.ICA(rppg_channels, component='second_comp')
+    bvp_omit = rppg.OMIT(rppg_channels)
+    bvp_pbv = rppg.PBV(rppg_channels)
+    bvp_pca = rppg.PCA(rppg_channels, component='second_comp')
+    bvp_ssr = rppg.SSR(rppg_channels_ssr, fps=fs)
 
-            # Aplicar métodos rPPG
-            bvp_signals = [
-                rppg.CHROM(rppg_channels), rppg.GREEN(rppg_channels), rppg.LGI(rppg_channels),
-                rppg.POS(rppg_channels, fs), rppg.GBGR(rppg_channels), rppg.ICA(rppg_channels, component='second_comp'),
-                rppg.OMIT(rppg_channels), rppg.PBV(rppg_channels), rppg.PCA(rppg_channels, component='second_comp'),
-                rppg.SSR(rppg_channels_ssr, fs)
-            ]
-            labels = ['CHROM', 'GREEN', 'LGI', 'POS', 'GBGR', 'ICA', 'OMIT', 'PBV', 'PCA', 'SSR']
+    # Lista de sinais e seus rótulos
+    bvp_signals = [bvp_chrom, bvp_green, bvp_lgi, bvp_pos, bvp_gbgr, bvp_ica, bvp_omit, bvp_pbv, bvp_pca, bvp_ssr]
+    labels = ['CHROM', 'GREEN', 'LGI', 'POS', 'GBGR', 'ICA', 'OMIT', 'PBV', 'PCA', 'SSR']
 
-            # Processa os resultados
-            for j, bvp_patches in enumerate(bvp_signals):
-                for i, bvp_patch in enumerate(bvp_patches):
-                    signal_filtered = pf.filter_z_butterworth(bvp_patch, fs)
-                    time_array = np.linspace(0, len(signal_filtered) / fs, len(signal_filtered))
-                    spectrum, freqs = pf.calculate_fft(signal_filtered, fs)
+    # Analisa cada um dos métodos
+    for j, bvp_patches in enumerate(bvp_signals):
+        print(f'Shape: {bvp_patches.shape}')
 
-                    # Salva os arquivos CSV
-                    csv_generator(bvp_patch, signal_filtered, time_array, spectrum, freqs, labels[j], patches[i], video_name)
+        # Para cada método, analisa cada um dos patches
+        for i, bvp_patch in enumerate(bvp_patches):
 
-# Parâmetros
-patches = [151, 101, 330, 10, 104, 107, 108, 109, 135, 18, 188, 199, 266, 280, 299, 333, 336, 337, 338, 347, 36, 364, 4, 50, 6, 69, 9]
-fs = 30  # Frequência de amostragem
-video_folder = "videos"  # Pasta com os vídeos
+            # Aplicar o filtro Butterworth
+            signal_filtered = pf.filter_z_butterworth(bvp_patch, fs)
+            time_array = np.linspace(0, len(signal_filtered) / fs, len(signal_filtered))
+            spectrum, freqs = pf.calculate_fft(signal_filtered, fs)
+
+            # Gera 3 arquivos csv, uma para o sinal bruto, outro para o filtrado e outro para a análise espectral
+            csv_generator(bvp_patch, signal_filtered, time_array, spectrum, freqs, labels[j], patches[i])
 
 if __name__ == '__main__':
-    process_videos_in_folder(video_folder, patches, fs)
+    # Caminho da pasta com os vídeos
+    video_folder = "videos"
+    
+    # Obter lista de vídeos na pasta
+    video_files = [f for f in os.listdir(video_folder) if f.endswith(('.mp4', '.avi', '.h264'))]
+    
+    for video_file in video_files:
+        video_path = os.path.join(video_folder, video_file)
+        print(f"Processando o vídeo: {video_file}")
+        process_video(video_path)
