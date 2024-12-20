@@ -235,7 +235,7 @@ if __name__ == '__main__':
     rppg_channels_ssr = np.array(rppg_channels_ssr, dtype=np.float32)
 
     # Mostra o gráfico das capturas no tempo
-    plot_rppg_signal(rppg_channels, fs)
+    #plot_rppg_signal(rppg_channels, fs)
 
     # Aplicar métodos rPPG
     bvp_chrom = rppg.CHROM(rppg_channels)
