@@ -4,7 +4,58 @@ import numpy as np
 import math
 import cv2
 import rPPG_Methods as rppg
-import os
+import process_functions as pf
+import os, csv
+
+def csv_generator(bvp_patch, signal_filtered, time_array, spectrum, freqs, method_label, patch_id):
+    """
+    Gera arquivos CSV para sinal bruto, sinal filtrado e análise espectral.
+    
+    Parâmetros:
+    - bvp_patch: Sinal bruto do método rPPG.
+    - signal_filtered: Sinal filtrado com filtro Butterworth.
+    - time_array: Array de tempo correspondente aos sinais.
+    - spectrum: Espectro de frequência do sinal.
+    - freqs: Frequências correspondentes ao espectro.
+    - method_label: Nome do método rPPG (definirá a pasta onde os arquivos serão salvos).
+    - patch_id: Identificador do patch (número do landmark).
+    """
+    # Diretório base onde os arquivos serão salvos
+    base_dir = "csv_outputs"
+    
+    # Cria a estrutura de diretórios: csv_outputs/{method_label}/patch_{patch_id}
+    patch_dir = os.path.join(base_dir, method_label, f"patch_{patch_id}")
+    os.makedirs(patch_dir, exist_ok=True)
+    
+    # 1. Arquivo CSV do sinal bruto
+    raw_file_path = os.path.join(patch_dir, f"sinal_bruto_patch_{patch_id}.csv")
+    with open(raw_file_path, mode='w', newline='') as file:
+        writer = csv.writer(file)
+        writer.writerow(["Time (s)", "Raw Signal"])  # Cabeçalhos
+        for t, value in zip(time_array, bvp_patch):
+            writer.writerow([t, value])
+    
+    print(f"Arquivo CSV gerado: {raw_file_path}")
+    
+    # 2. Arquivo CSV do sinal filtrado
+    filtered_file_path = os.path.join(patch_dir, f"sinal_filtrado_patch_{patch_id}.csv")
+    with open(filtered_file_path, mode='w', newline='') as file:
+        writer = csv.writer(file)
+        writer.writerow(["Time (s)", "Filtered Signal"])  # Cabeçalhos
+        for t, value in zip(time_array, signal_filtered):
+            writer.writerow([t, value])
+    
+    print(f"Arquivo CSV gerado: {filtered_file_path}")
+    
+    # 3. Arquivo CSV da análise espectral
+    spectrum_file_path = os.path.join(patch_dir, f"espectro_frequencia_patch_{patch_id}.csv")
+    with open(spectrum_file_path, mode='w', newline='') as file:
+        writer = csv.writer(file)
+        writer.writerow(["Frequency (Hz)", "Amplitude"])  # Cabeçalhos
+        for f, value in zip(freqs, spectrum):
+            writer.writerow([f, value])
+    
+    print(f"Arquivo CSV gerado: {spectrum_file_path}")
 
 # Parâmetros
 patches = [151, 101, 330, 10, 104, 107, 108, 109, 135, 18, 188, 199, 266, 280, 299, 333, 336, 337, 338, 347, 36, 364, 4, 50, 6, 69, 9]  # Regiões de interesse (números de landmarks)
@@ -141,9 +192,7 @@ def plot_rppg_signal(rppg_data, fs):
 
 if __name__ == '__main__':
     # Caminho correto do vídeo
-    video_folder = "cache"
-    video_name = "video_face_7.h264"
-    caminho_video = video_name
+    caminho_video = "video_face_7.h264"
 
     # Lista para armazenar os valores RGB
     rppg_channels = []
@@ -202,12 +251,19 @@ if __name__ == '__main__':
 
     # Lista de sinais e seus rótulos
     bvp_signals = [bvp_chrom, bvp_green, bvp_lgi, bvp_pos, bvp_gbgr, bvp_ica, bvp_omit, bvp_pbv, bvp_pca, bvp_ssr]
-
-    # Analisa os formatos de retorno
-    for i in bvp_signals:
-        print(f'Shape: {i.shape}')
-
     labels = ['CHROM', 'GREEN', 'LGI', 'POS', 'GBGR', 'ICA', 'OMIT', 'PBV', 'PCA', 'SSR']
 
-    # Plotar os sinais BVP extraídos
-    plot_bvp_signals_separately(bvp_signals, labels, fs)
+    # Analisa cada um do métodos
+    for j, bvp_patches in enumerate(bvp_signals):
+        print(f'Shape: {bvp_patches.shape}')
+
+        # Para cada método, analisa cada um dos patches
+        for i, bvp_patch in enumerate(bvp_patches):
+
+            # Aplicar o filtro Butterworth
+            signal_filtered = pf.filter_z_butterworth(bvp_patch, fs)
+            time_array = np.linspace(0, len(signal_filtered) / fs, len(signal_filtered))
+            spectrum, freqs = pf.calculate_fft(signal_filtered, fs)
+
+            # Gera 3 arquivos csv, uma para o sinal bruto, outro para o filtrado e outro para a análise espectral
+            csv_generator(bvp_patch, signal_filtered, time_array, spectrum, freqs, labels[j], patches[i])
