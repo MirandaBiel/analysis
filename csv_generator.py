@@ -84,7 +84,7 @@ def processa_um_frame(frame):
         
         # Calcula o tamanho do patch
         l = int((math.sqrt((landmarks_points[337][0] - landmarks_points[108][0])**2 +
-                           (landmarks_points[337][1] - landmarks_points[108][1])**2)) / 5)
+                           (landmarks_points[337][1] - landmarks_points[108][1])**2)) / 4)
         
         # Extrai os patches para análise
         for patch in patches:
